@@ -1,5 +1,6 @@
 ﻿using DataAPI.Data;
 using DataAPI.Models;
+using DataAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DataAPI.Controllers
@@ -7,18 +8,20 @@ namespace DataAPI.Controllers
     public class GroupController : ControllerBase
     {
         private readonly ILogger<GroupController> _logger;
+        private readonly IGroupService _groupService;
         private readonly GroupDbContext _context;
-        public GroupController(GroupDbContext context, ILogger<GroupController> logger)
+        public GroupController(IGroupService groupService, ILogger<GroupController> logger, GroupDbContext context)
         {
-            _context = context;
+            _groupService = groupService;
             _logger = logger;
+            _context = context;
         }
         [HttpGet]
         [Route("api/[controller]")]
         public IActionResult GetGroups()
         {
             // Logic to get groups from the database or any other source
-            var groups = _context.Groups.ToList();
+            var groups = _groupService.GetGroupsAsync();
             return Ok(groups);
         }
         [HttpGet("GetGroupById")]
@@ -28,55 +31,39 @@ namespace DataAPI.Controllers
             return Ok(group);
         }
         [HttpGet("GetGroupsByParentId")]
-        public IActionResult getGroupByParentId(int ParentId)
+        public IActionResult getGroupsByParentId(int ParentId)
         {
-            var groups = _context.Groups.Where(G => G.ParentId.Contains(ParentId)).ToList();
+            var task = _groupService.GetGroupsByParentIdAsync(ParentId);
+            var groups = task.Result;
             return Ok(groups);
         }
         [HttpPost("InsertGroup")]
         public IActionResult InsertGroup(int ParentID)
         {
-            var group = new GroupEntity
-            {
-                ParentId = [ParentID],
-                GroupName = "Group1"
-            };
-            _context.Groups.Add(group);
-            _context.SaveChanges();
+            var group = _groupService.InsertGroupAsync(ParentID);
             return Ok(group);
         }
         [HttpGet("GetPersonsByGroupId")]
         public IActionResult GetPersonsByGroupId(int GroupId)
         {
-            var persons = _context.Persons.Where(p => p.GroupId == GroupId);
+            var task = _groupService.GetPersonsByGroupIdAsync(GroupId);
+            var persons = task.Result;
+            if (persons == null)
+            {
+                return NotFound();
+            }
             return Ok(persons);
         }
         [HttpPost("InsertPerson")]
         public IActionResult InsertPerson(PersonEntity fromBody)
         {
-            _context.Persons.Add(fromBody);
-            _context.SaveChanges();
-            return Ok(fromBody);
+            var person = _groupService.InsertPersonAsync(fromBody);
+            return Ok(person);
         }
-        [HttpGet("GetGroupWithPersons")]
-        public IActionResult GetGroupWithPersons()
+        [HttpGet("GetGroupsWithPersons")]
+        public IActionResult GetGroupsWithPersons()
         {
-            var group = _context.Groups
-                .GroupJoin(_context.Persons,
-                    g => g.Id,
-                    p => p.GroupId,
-                    (g, p) => new
-                    {
-                        records = p.Select(p => new
-                        {
-                            p.Id,
-                            p.Name,
-                            p.Email,
-                            p.Phone,
-                            p.Subjects
-                        }).ToList(),
-                        g.Id,
-                    });
+            var group = _groupService.GetGroupsWithPersonsAsync();
             if (group == null)
             {
                 return NotFound();

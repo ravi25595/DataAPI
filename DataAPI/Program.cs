@@ -1,4 +1,5 @@
 using DataAPI.Data;
+using DataAPI.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,7 +23,7 @@ builder.Services.AddCors(options =>
         .AllowAnyHeader();
     });
 });
-
+builder.Services.AddScoped<IGroupService, GroupService>();
 var app = builder.Build();
 
 
